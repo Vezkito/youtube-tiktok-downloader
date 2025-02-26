@@ -1,5 +1,5 @@
-Video Downloader
-Este é um aplicativo de desktop para baixar vídeos de várias plataformas usando yt-dlp. O aplicativo possui uma interface gráfica amigável construída com tkinter e permite que os usuários escolham entre diferentes modos de exibição (Dark Mode/Light Mode) e caminhos predefinidos para salvar os vídeos. Além disso, o aplicativo toca um som de notificação quando o download é concluído.
+youtube-tiktok-downloader
+Este é um aplicativo caseiro de desktop para baixar vídeos de várias plataformas usando yt-dlp. O aplicativo possui uma interface gráfica amigável construída com tkinter e permite que os usuários escolham entre diferentes modos de exibição (Dark Mode/Light Mode) e caminhos predefinidos para salvar os vídeos. Além disso, o aplicativo toca um som de notificação quando o download é concluído.
 
 Funcionalidades
 Baixar vídeos de várias plataformas usando yt-dlp.
