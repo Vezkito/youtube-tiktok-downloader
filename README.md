@@ -15,8 +15,8 @@ pygame
 Instalação
 Clone o repositório para o seu ambiente local:
 
-git clone https://github.com/seu-usuario/video-downloader.git
-cd video-downloader
+git clone https://github.com/seu-usuario/youtube-tiktok-downloader.git
+cd youtube-tiktok-downloader
 Instale as dependências necessárias:
 
 pip install yt-dlp pygame
@@ -24,27 +24,7 @@ Certifique-se de que o ffmpeg está instalado e disponível no PATH do sistema. 
 
 Uso
 Execute o script Python:
+Fim. :) 
 
-python vzk_downloader.pyw
-Use a interface gráfica para inserir URLs de vídeos, escolher o caminho para salvar e iniciar os downloads.
-
-Empacotamento com PyInstaller
-Para empacotar o aplicativo em um arquivo executável usando PyInstaller, siga estas etapas:
-
-Instale o PyInstaller:
-
-pip install pyinstaller
-Crie o executável:
-
-pyinstaller --onefile --noconsole vzk_downloader.pyw
-Copie os arquivos adicionais (ffmpeg, ytdl, download_complete.mp3) para a pasta dist onde o executável foi gerado.
-
-Exemplo:
-
-dist/
-├── vzk_downloader.exe
-├── ffmpeg.exe
-├── ytdl
-│   └── yt-dlp.exe
-├── download_complete.mp3
-Execute o arquivo vzk_downloader.exe na pasta dist.
+Obs 1:não se esqueça de colocar os 3 arquivos na mesma pasta.
+Obs 2: As duas pastas pré-definidas são feitas para o meu pathing de arquivos, sinta-se livre para modificar o script e colocar seu próprio pathing. 
