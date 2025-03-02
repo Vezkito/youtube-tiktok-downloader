@@ -5,6 +5,14 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import pygame
+import subprocess
+
+def touch_file(file_path):
+    """Atualiza a data e hora de modificação do arquivo para o momento atual."""
+    try:
+        os.utime(file_path, None)
+    except Exception as e:
+        print(f"Erro ao atualizar a data/hora do arquivo: {e}")
 
 class VideoDownloaderApp:
     def __init__(self, root):
@@ -15,7 +23,6 @@ class VideoDownloaderApp:
         self.root.overrideredirect(True)
         self.root.attributes('-topmost', True)
 
-        # Adicionar uma barra de título personalizada com um botão de fechar
         self.title_bar = tk.Frame(self.root, bg='#1c1c1c', relief='raised', bd=0, highlightthickness=0)
         self.title_bar.pack(side='top', fill='x')
 
@@ -34,12 +41,25 @@ class VideoDownloaderApp:
         self.init_styles()
         self.create_widgets()
 
-        # inicializar variáveis para o movimento da janela
         self.x = 0
         self.y = 0
-        self.sound_file = "download_complete.mp3"  # som do término do download, deve  estar no mesmo diretório do código
+        self.sound_file = "download_complete.mp3"
 
-        pygame.mixer.init()  # inicializa o mixer do pygame, usei o pygame para o áudio slk
+        pygame.mixer.init()
+
+        if not self.check_ffmpeg():
+            messagebox.showerror("Erro", "FFmpeg não encontrado. Instale o FFmpeg e adicione ao PATH.")
+            self.root.destroy()
+
+    def check_ffmpeg(self):
+        """Verifica se o FFmpeg está instalado e acessível."""
+        try:
+            result = subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            print(f"FFmpeg encontrado: {result.stdout.decode('utf-8').splitlines()[0]}")
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            print(f"FFmpeg não encontrado: {e}")
+            return False
 
     def init_styles(self):
         self.style.configure("TFrame", background='#2e2e2e')
@@ -130,45 +150,91 @@ class VideoDownloaderApp:
         if not caminho:
             messagebox.showerror("Erro", "Por favor, selecione um caminho para salvar os vídeos bobo.")
             return
-        self.url_entry.delete(0, tk.END)  # limpar a caixa de links, após uso
+        self.url_entry.delete(0, tk.END)
         if url.lower() == "sair":
             self.root.quit()
         elif url.lower() == "retornar":
             self.caminho_entry.delete(0, tk.END)
         elif url:
             self.status_label.config(text="Baixando...")
-            self.adicionar_button.config(state=tk.DISABLED)  # desliga botão até o fim do download
+            self.adicionar_button.config(state=tk.DISABLED)
             threading.Thread(target=self.baixar_video, args=(url, caminho)).start()
         else:
             messagebox.showerror("Erro", "Por favor, insira um link de vídeo.")
 
     def baixar_video(self, url, caminho):
-        ydl_opts = {}
-        if self.download_audio_var.get():
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
-                'outtmpl': os.path.join(caminho, '%(title)s.%(ext)s')
-            }
-        else:
-            ydl_opts = {
-                'outtmpl': os.path.join(caminho, '%(title)s.%(ext)s')
-            }
+        ydl_opts = {
+            'cookiefile': 'cookies.txt',
+            'outtmpl': os.path.join(caminho, '%(title)s.temp.%(ext)s'),  # Arquivo temporário
+            'verbose': True,
+            'ignoreconfig': True,
+            'format': 'bestvideo[vcodec=avc1]+bestaudio/best',  # Tenta H.264 primeiro
+            'merge_output_format': 'mp4',
+            'prefer_ffmpeg': True,
+        }
 
         try:
+            # Baixa o vídeo
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            self.show_status_message("✅ Download finalizado!")
-        except yt_dlp.utils.DownloadError as e:
-            self.show_status_message(f"❌ Erro ao baixar: {e}")
+                info_dict = ydl.extract_info(url, download=True)
+                temp_file = ydl.prepare_filename(info_dict)
+
+            # Define o arquivo final
+            final_file = temp_file.replace('.temp.', '.')
+
+            # Converte manualmente com FFmpeg sem abrir CMD
+            print(f"Convertendo {temp_file} para {final_file} com H.264...")
+            ffmpeg_cmd = [
+                'ffmpeg',
+                '-i', temp_file,
+                '-c:v', 'libx264',
+                '-c:a', 'aac',
+                '-f', 'mp4',
+                '-movflags', '+faststart',
+                final_file
+            ]
+            result = subprocess.run(
+                ffmpeg_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+                creationflags=subprocess.CREATE_NO_WINDOW  # Impede a abertura do CMD no Windows
+            )
+            print(f"FFmpeg saída: {result.stdout.decode('utf-8')}")
+            print(f"FFmpeg erros (se houver): {result.stderr.decode('utf-8')}")
+
+            # Remove o arquivo temporário após conversão
+            if os.path.exists(final_file):
+                os.remove(temp_file)
+                print(f"Arquivo temporário {temp_file} removido.")
+            else:
+                raise Exception("Arquivo final não foi criado.")
+
+            touch_file(final_file)
+            self.show_status_message("✅ Download e conversão finalizados!")
+        except yt_dlp.utils.ExtractorError as e:
+            self.show_status_message(f"❌ Erro no download: {e}")
+            self.list_available_formats(url)
+        except subprocess.CalledProcessError as e:
+            self.show_status_message(f"❌ Erro na conversão FFmpeg: {e.stderr.decode('utf-8')}")
+            print(f"Erro detalhado FFmpeg: {e}")
+        except Exception as e:
+            self.show_status_message(f"❌ Erro inesperado: {e}")
+            print(f"Erro detalhado: {e}")
+
+    def list_available_formats(self, url):
+        """Lista os formatos disponíveis para o vídeo."""
+        ydl_opts = {'listformats': True}
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.extract_info(url, download=False)
+            self.show_status_message("Verifique os formatos disponíveis no console.")
+        except Exception as e:
+            self.show_status_message(f"❌ Erro ao listar formatos: {e}")
 
     def show_status_message(self, message):
         self.status_label.config(text=message)
-        self.adicionar_button.config(state=tk.NORMAL)  #ativa o botao
+        self.adicionar_button.config(state=tk.NORMAL)
         self.root.update_idletasks()
         pygame.mixer.music.load(self.sound_file)
         pygame.mixer.music.play()
@@ -218,10 +284,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = VideoDownloaderApp(root)
     root.mainloop()
-
-# __   __   ______     __  __    
-#/\ \ / /  /\___  \   /\ \/ /    
-#\ \ \'/   \/_/  /__  \ \  _"-.  
-# \ \__|     /\_____\  \ \_\ \_\ 
-#  \/_/      \/_____/   \/_/\/_/ 
-                                
